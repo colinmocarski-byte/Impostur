@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impostor</title>
+<style>
+  :root{
+    --bg:#03100b;
+    --bg2:#05150c;
+    --card:#06160c;
+    --ink:#eafff3;
+    --mut:#b8f7c8;
+    --accent:#00c853;
+    --accent-2:#00e676;
+    --border:#10441b;
+    --good:#22c55e;
+    --bad:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;color:var(--ink);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(0,200,83,.15), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(0,200,83,.1), transparent 60%),
+      linear-gradient(180deg,var(--bg),var(--bg2) 55%, #020a05);
+    min-height:100vh;
+  }
+  .wrap{max-width:980px;margin:auto;padding:18px}
+  h1{font-size:24px;margin:0 0 6px;font-weight:900}
+  h2{margin:0 0 10px}
+  .card{
+    background:linear-gradient(180deg,rgba(0,200,83,.06),rgba(0,200,83,.03));
+    border:1px solid var(--border);border-radius:16px;padding:14px;margin:12px 0;
+    box-shadow:0 12px 40px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,200,83,.04)
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  .pill{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:#051a0c;color:var(--mut)}
+  .muted{color:var(--mut)} .small{font-size:12px}
+  input,select,textarea{background:#05150c;border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--ink);width:100%}
+  button{appearance:none;background:#061806;border:1px solid var(--border);color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:800;transition:.15s transform}
+  button:hover{border-color:#1b6a33;transform:translateY(-1px)}
+  .primary{background:linear-gradient(180deg,var(--accent),var(--accent-2));border-color:#15b62f;color:#021b0a;box-shadow:0 6px 20px rgba(0,200,83,.25)}
+  .big{font-size:20px}
+  .name{padding:8px 10px;border:1px dashed #165a26;border-radius:10px;background:#061a0a}
+  .vote-btn{display:block;width:100%;text-align:left;margin:6px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#061a0a;cursor:pointer}
+  .vote-btn.sel{outline:2px solid var(--accent);box-shadow:0 0 0 2px rgba(0,200,83,.25) inset}
+  .timer{height:10px;background:#041104;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .timer>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:100%;transition:width .2s linear}
+
+  /* Flip Card (smooth) */
+  .flip-wrap{perspective:1200px; display:flex; justify-content:center; align-items:center; min-height:260px; margin-top:8px}
+  .flip-card{position:relative; width:340px; max-width:92vw; height:200px; transform-style:preserve-3d; transition:transform .65s cubic-bezier(.2,.8,.2,1); border-radius:18px}
+  .flip-card::after{content:""; position:absolute; inset:-2px; border-radius:20px; pointer-events:none; background:conic-gradient(from 210deg, rgba(0,200,83,.0), rgba(0,200,83,.35), rgba(0,200,83,.0)); filter:blur(14px); opacity:.35}
+  .flip-card.flipped{transform:rotateY(180deg)}
+  .face{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:18px; border-radius:18px; background:linear-gradient(160deg,#081f10,#041209); border:1px solid #186418; backface-visibility:hidden; box-shadow:inset 0 0 60px rgba(0,200,83,.06), 0 18px 60px rgba(0,0,0,.4)}
+  .front .title{font-size:12px; color:#b4ffb4; margin-bottom:6px; letter-spacing:.02em}
+  .front .who{font-size:26px; font-weight:900}
+  .back{transform:rotateY(180deg)}
+  .back .word{font-size:24px; font-weight:900; text-align:center; line-height:1.2}
+  .back .role{font-size:12px; color:#b4ffb4; margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="row" style="justify-content:space-between;align-items:center">
+    <div>
+      <div class="pill" style="font-weight:900">Impostor</div>
+      <div class="row" style="margin-top:6px"><span class="pill">Offline</span><span class="pill">Flip-Reveal</span><span class="pill">Troll-Modus</span></div>
+    </div>
+    <button class="pill" onclick="showHelp()">Regeln</button>
+  </header>
+
+  <!-- Setup -->
+  <div id="screen-setup" class="card">
+    <h2>Spiel vorbereiten</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Spieler:innen</h3>
+        <div class="row">
+          <input id="name-in" placeholder="Name eingeben & hinzufügen" onkeydown="if(event.key==='Enter') addPlayer()"/>
+          <button class="primary" onclick="addPlayer()">Hinzufügen</button>
+          <button onclick="quickFill()">Schnelles Füllen</button>
+        </div>
+        <div id="names" class="row"></div>
+      </div>
+
+      <div class="card">
+        <h3>Einstellungen</h3>
+        <div class="row" style="width:100%">
+          <label class="pill">Rundendauer</label>
+          <select id="dur"><option>60</option><option selected>90</option><option>120</option></select>
+          <label class="pill">Impostors</label>
+          <select id="impc"><option selected>1</option><option>2</option></select>
+          <label class="pill"># Kategorien</label>
+          <select id="kcount"></select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Kategorien</h3>
+        <div id="cat-list" class="grid"></div>
+        <div class="small muted">Beim Start werden keine Kategorie-Infos geleakt.</div>
+      </div>
+
+      <div class="card">
+        <h3>Troll-Modus (Fun)</h3>
+        <div class="row" style="width:100%">
+          <label class="pill"><input type="checkbox" id="trollOn"> Aktiv</label>
+          <label class="pill">Chaos: <span id="chaosVal">20%</span></label>
+          <input type="range" id="chaos" min="0" max="100" value="20" oninput="document.getElementById('chaosVal').textContent=this.value+'%'">
+        </div>
+        <div class="small muted">Mögliche Effekte (zufällig bei Chaos): Alle Impostors, keiner, extra viele (2–3), u. ä.</div>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:center">
+      <button class="primary big" onclick="startRound()">Runde starten</button>
+    </div>
+  </div>
+
+  <!-- Reveal (Flip Card) -->
+  <div id="screen-reveal" class="card" style="display:none">
+    <h2 class="row" style="justify-content:space-between">
+      <span>Geheime Enthüllung</span>
+      <span class="pill" id="who-starts" title="Startspieler:in">Starter: –</span>
+    </h2>
+    <p class="muted">Gib das Gerät an <b id="rev-name">Name</b>. Tippe auf die Karte, um zu enthüllen.</p>
+    <div class="flip-wrap">
+      <div id="flipCard" class="flip-card" onclick="flip()">
+        <div class="face front">
+          <div style="text-align:center">
+            <div class="title">Spieler:in</div>
+            <div id="frontName" class="who">–</div>
+            <div class="small muted" style="margin-top:8px">Tippen zum Anzeigen</div>
+          </div>
+        </div>
+        <div class="face back">
+          <div style="text-align:center">
+            <div id="backMain" class="word">Wort</div>
+            <div id="backRole" class="role">Rolle</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:center">
+      <button onclick="prevReveal()">Zurück</button>
+      <button class="primary" onclick="nextReveal()">Weiter</button>
+    </div>
+  </div>
+
+  <!-- Discuss -->
+  <div id="screen-discuss" class="card" style="display:none">
+    <h2>Hinweise & Diskussion <span class="pill" id="starter-pill"></span></h2>
+    <div class="timer"><div id="tbar"></div></div>
+    <div class="row" style="justify-content:center;margin-top:10px">
+      <button class="primary" onclick="goVote()">Zur Abstimmung</button>
+      <button onclick="pauseTimer()">Pause</button>
+      <button onclick="resumeTimer()">Weiter</button>
+    </div>
+  </div>
+
+  <!-- Vote -->
+  <div id="screen-vote" class="card" style="display:none">
+    <h2>Abstimmung</h2>
+    <div id="vote-list"></div>
+    <div class="row">
+      <button onclick="revealResult()">Auswerten</button>
+      <button onclick="toggleTie()">Stechen-Modus umschalten</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div id="screen-result" class="card" style="display:none">
+    <h2 id="res-title">Ergebnis</h2>
+    <p id="res-desc" class="muted"></p>
+    <div class="row">
+      <button class="primary" onclick="newWordSamePlayers()">Weiter – neues Wort</button>
+      <button onclick="backToSetup()">Zurück zum Setup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======= Wortpools (>350 Wörter) ======= */
+const WORDS = {
+  "WM / Fußball":[ "Elfmeter","Abseits","Freistoß","Ecke","Torwart","Verteidiger","Stürmer","Mittelfeld","Halbzeit","Nachspielzeit","Gelbe Karte","Rote Karte","VAR","Abwehrkette","Flanke","Konter","Dribbling","Pressing","Abstoß","Anstoß","Latte","Pfosten","Volley","Kopfball","Handspiel","Grätsche","Passspiel","Doppelpass","Offensivfoul","Rückpass","Auswechslung","Trikot","Schienbeinschoner","Trainerbank","Spielfeldrand","Anhang","Fangesang","Choreografie","Heimspiel","Auswärtsspiel","Derby","Spielplan","Gruppenphase","K.-o.-Runde","Achtelfinale","Viertelfinale","Halbfinale","Finale","Pokal","Weltmeister","Gastgeber","Nach Elfmetern" ],
+  "Tiere":[ "Elefant","Tiger","Löwe","Giraffe","Nashorn","Zebra","Pinguin","Koala","Känguru","Panda","Delfin","Hai","Wal","Eule","Fuchs","Wolf","Bär","Leopard","Gepard","Nilpferd","Krokodil","Krake","Seestern","Qualle","Ameise","Biene","Libelle","Schmetterling","Marienkäfer","Erdmännchen","Dachs","Otter","Igel","Maulwurf","Fledermaus","Papagei","Flamingo","Pfau","Strauß","Alpaka","Lama","Yak","Rentier","Murmeltier","Marder","Waschbär","Elch","Vielfraß","Schakal","Warzenschwein" ],
+  "Essen & Trinken":[ "Pizza","Burger","Sushi","Tacos","Falafel","Currywurst","Bratwurst","Sauerkraut","Käsespätzle","Lasagne","Carbonara","Ramen","Pho","Curry","Pad Thai","Paella","Hummus","Guacamole","Maultaschen","Döner","Burrito","Gyros","Hotdog","Onigiri","Gulasch","Fondue","Raclette","Pesto","Tiramisu","Baklava","Apfelstrudel","Schwarzwälder Kirschtorte","Kaiserschmarrn","Brezel","Käsekuchen","Quiche","Risotto","Tapas","Tortilla","Churros","Shakshuka","Kimchi","Bibimbap","Sauerteig","Latte Macchiato","Espresso","Cappuccino","Eistee","Limonade","Mate","Kombucha" ],
+  "Städte & Orte":[ "Berlin","Hamburg","München","Köln","Frankfurt","Stuttgart","Dresden","Leipzig","Bremen","Hannover","Dortmund","Essen","Düsseldorf","Nürnberg","Heilbronn","St. Pauli","Sylt","Zugspitze","Schwarzwald","Rügen","Konstanz","Heidelberg","Tübingen","Freiburg","Aachen","Bamberg","Weimar","Potsdam","Krakau","Warschau","Danzig","Prag","Wien","Zürich","Genf","Paris","Lyon","London","Manchester","Madrid","Barcelona","Rom","Mailand","Venedig","Lissabon","Porto","New York","Los Angeles","Toronto","Mexiko-Stadt" ],
+  "Alltagsdinge":[ "Schlüssel","Geldbeutel","Kopfhörer","Ladekabel","Powerbank","Regenschirm","Brille","Notizbuch","Kuli","Taschenmesser","Taschenlampe","Handcreme","Desinfektionsgel","Haargummi","USB-Stick","Rucksack","Trinkflasche","Brotdose","Kaugummi","Taschentücher","Fahrausweis","EC-Karte","Ausweis","Studentenausweis","Fitnessband","Smartwatch","Maus","Tastatur","Monitor","Adapter","Mehrfachsteckdose","Klebeband","Schere","Heftklammern","Büroklammer","Briefumschlag","Feuerzeug","Streichholz","Kerze","Luftpumpe","Fahrradschloss","Schloss","Gürtel","Mütze","Handschuh","Schal","Maske","Pflaster","Thermobecher","Kalender" ],
+  "Berufe":[ "Ärztin/Arzt","Lehrkraft","Ingenieur:in","Programmierer:in","Architekt:in","Mechaniker:in","Elektriker:in","Bäcker:in","Konditor:in","Koch/Köchin","Kellner:in","Pilot:in","Flugbegleiter:in","Polizist:in","Feuerwehr","Sanitäter:in","Fotograf:in","Journalist:in","Designer:in","Produktmanager:in","Verkäufer:in","Apotheker:in","Chemiker:in","Physiker:in","Biolog:in","Gärtner:in","Schreiner:in","Installateur:in","Dachdecker:in","Maler:in","Friseur:in","Therapeut:in","Psycholog:in","Anwalt/Anwältin","Richter:in","Notar:in","Steuerberater:in","Zahnarzt/Zahnärztin","Tierarzt:Tierärztin","Hebamme","Logistiker:in","Lokführer:in","Busfahrer:in","Kurier:in","Data Scientist","Mechatroniker:in","Laborant:in","Übersetzer:in","Bibliothekar:in","Sozialarbeiter:in" ],
+  "Marken & Technik":[ "Apple","Samsung","Google","Microsoft","Sony","Nintendo","PlayStation","Xbox","Tesla","BMW","Mercedes","Audi","Volkswagen","Porsche","Ikea","Zara","H&M","Adidas","Nike","Reebok","Asics","New Balance","Canon","Nikon","GoPro","DJI","Bose","Sennheiser","Beats","Dyson","Philips","Siemens","Bosch","Miele","Whirlpool","Ionos","AWS","Azure","Stackit","GitHub","Slack","Discord","WhatsApp","Instagram","TikTok","YouTube","Snapchat","Spotify","Netflix","Prime Video" ],
+  "Filme & Serien (allg.)":[ "Star Wars","Herr der Ringe","Harry Potter","Game of Thrones","Breaking Bad","Stranger Things","The Dark Knight","Inception","Interstellar","Oppenheimer","Barbie","Forrest Gump","Gladiator","Titanic","Matrix","Avatar","Shrek","Toy Story","Cars","Coco","Der Pate","Fight Club","Pulp Fiction","The Boys","The Office","Friends","How I Met Your Mother","Sherlock","Lupin","Prison Break","Peaky Blinders","Vikings","Narcos","Black Mirror","Wednesday","Suits","Dune","Top Gun","Mission: Impossible","John Wick","Rocky","Creed","Jurassic Park","Frozen","Moana","Encanto","Inside Out","Wall·E","Up","Ratatouille" ],
+  "Sport allgemein":[ "Tennis","Basketball","Handball","Volleyball","Leichtathletik","Schwimmen","Rudern","Segeln","Boxen","MMA","Ringen","Fechten","Turnen","Skispringen","Biathlon","Snowboard","Eishockey","Baseball","Cricket","Rugby","Badminton","Tischtennis","Radfahren","Triathlon","Marathon","Hürdenlauf","Speerwurf","Weitsprung","Kugelstoßen","Hochsprung","Diskus","Surfen","Klettern","Parkour","Skaten","Bouldern","Golf","Darts","Billard","Bowling","Reiten","Dressur","Polo","Kajak","Kanu","Motorsport","Formel 1","Rallye","Motocross","eSport" ],
+  "Länder & Flaggen":[ "Deutschland","Frankreich","Italien","Spanien","Portugal","Niederlande","Belgien","Österreich","Schweiz","Polen","Tschechien","Slowakei","Ungarn","Dänemark","Schweden","Norwegen","Finnland","Island","Irland","Vereinigtes Königreich","USA","Kanada","Mexiko","Brasilien","Argentinien","Chile","Uruguay","Peru","Kolumbien","Venezuela","Japan","Südkorea","China","Indien","Thailand","Vietnam","Indonesien","Malaysia","Singapur","Philippinen","Ägypten","Marokko","Tunesien","Südafrika","Nigeria","Kenia","Äthiopien","Türkei","Saudi-Arabien","VAE" ],
+  "Schule & Campus":[ "Whiteboard","Beamer","Tafel","Kreide","Schwamm","Lineal","Geodreieck","Zirkel","Taschenrechner","Block","Ordner","Heft","Mäppchen","Markierer","Textmarker","Korrekturroller","Collegeblock","Klausur","Referat","Hausarbeit","Seminar","Vorlesung","Tutorium","Mensa","Cafeteria","Bibliothek","Skript","Handout","Projektor","Stuhlreihe","Stundenplan","Pausengong","Sporthalle","Musikraum","Chemielabor","Reagenzglas","Bunsenbrenner","Pipette","Mikroskop","Waage","Notebook","Tablet","WLAN","Hotspot","Webcam","Headset","Aufnahme","Cloud","Drucker","Scanner" ],
+  "Random Spaß":[ "Klebebart","Entenfüße","Bananenschale","Konfettikanone","Seifenblasen","Wasserpistole","Luftballon","Glitzer","Neonstift","Gaffer Tape","Quietsche-Ente","Kaugummiblase","Emoji-Kissen","Blinklicht","Katzenhaar","Pizzakarton","Sockenmonster","Keksdose","Popcornmaschine","Wackeldackel","Schneekugel","Zauberwürfel","Jo-Jo","Yo-Yo-Trick","Springseil","Hula-Hoop","Wasserkocher","Toaster","Mikrowelle","Backofen","Staubsauger","Hauspantoffel","Kapuzenpulli","Jogginghose","Sonnenbrille","Badeente","Magnet","Post-it","Stickeralbum","Klebepistole","Locher","Tacker","Klammeraffe","Flaschenöffner","Schlüsselband","USB-Hub","Lichtschwert","Keksstempel","Wäscheklammer","Geldkatze" ]
+};
+const CAT_KEYS = Object.keys(WORDS);
+
+/* ======= UI-Build ======= */
+function buildCategoryChecklist(){
+  const box = document.getElementById("cat-list"); box.innerHTML="";
+  CAT_KEYS.forEach((k, idx)=>{
+    const label=document.createElement("label");
+    label.className="row"; label.style.alignItems="center"; label.style.gap="8px";
+    label.style.border="1px solid var(--border)"; label.style.borderRadius="10px"; label.style.padding="8px";
+    const cb=document.createElement("input"); cb.type="checkbox"; cb.value=k; cb.checked=idx<3;
+    const span=document.createElement("span"); span.innerHTML=`<b>${k}</b>`;
+    label.appendChild(cb); label.appendChild(span); box.appendChild(label);
+  });
+  const kSel=document.getElementById("kcount"); kSel.innerHTML="";
+  for(let i=1;i<=CAT_KEYS.length;i++){
+    const op=document.createElement("option"); op.value=i; op.textContent=i+(i>1?" Kategorien":" Kategorie");
+    if(i===2) op.selected=true; kSel.appendChild(op);
+  }
+}
+buildCategoryChecklist();
+
+/* ======= State ======= */
+let players=[]; let activeCats=[]; let roundWord=""; let impostors=[]; let revealIdx=0;
+let votes={}; let timerInt=null; let timeLeft=0; let tieMode=false; let starter=null;
+
+/* ======= Helpers ======= */
+function $(id){return document.getElementById(id)}
+function swap(scr){ ["screen-setup","screen-reveal","screen-discuss","screen-vote","screen-result"].forEach(s=>$(s).style.display="none"); $(scr).style.display="block"; }
+function renderPlayers(){ const box=$("names"); box.innerHTML=""; players.forEach((p,i)=>{ const s=document.createElement("span"); s.className="name"; s.textContent=p; s.title="Zum Entfernen klicken"; s.onclick=()=>{players.splice(i,1);renderPlayers()}; box.appendChild(s); }); }
+function addPlayer(){ const v=$("name-in").value.trim(); if(!v) return; if(players.includes(v)) return alert("Name existiert schon."); players.push(v); $("name-in").value=""; renderPlayers(); }
+function quickFill(){ const pool=["Alex","Ben","Chi","Dana","Emil","Fay","Gio","Hila","Ivo","Jona","Kim","Luca","Mara","Niko","Oli","Pia","Quin","Ria","Sam","Tara"]; while(players.length<6){ const n=pool[Math.floor(Math.random()*pool.length)]; if(!players.includes(n)) players.push(n);} renderPlayers(); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
+function sample(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+/* ======= Kategorien wählen ======= */
+function pickActiveCategories(k){
+  const checked=[...document.querySelectorAll("#cat-list input[type=checkbox]:checked")].map(cb=>cb.value);
+  let base = checked.length ? checked.slice() : CAT_KEYS.slice();
+  const missing = Math.max(0, k - base.length);
+  if(missing>0){ const rest=CAT_KEYS.filter(c=>!base.includes(c)); shuffle(rest); base=base.concat(rest.slice(0,missing)); }
+  if(base.length>k){ shuffle(base); base=base.slice(0,k); }
+  return base;
+}
+
+/* ======= Troll-Modus ======= */
+function applyTroll(impostorIdxs){
+  const on = document.getElementById('trollOn').checked;
+  const chaos = parseInt(document.getElementById('chaos').value,10)/100;
+  if(!on || Math.random() > chaos) return impostorIdxs;
+  const n = players.length;
+  const modes = ["ALL","NONE","EXTRA2","EXTRA3"];
+  const m = sample(modes);
+  if(m==="ALL")  return players.map((_,i)=>i);
+  if(m==="NONE") return [];
+  if(m==="EXTRA3"){ const want=Math.min(3,Math.max(1,n-1)); const pool=players.map((_,i)=>i); shuffle(pool); return pool.slice(0,want); }
+  if(m==="EXTRA2"){ const want=Math.min(2,Math.max(1,n-1)); const pool=players.map((_,i)=>i); shuffle(pool); return pool.slice(0,want); }
+  return impostorIdxs;
+}
+
+/* ======= Flip-Karte ======= */
+function setFlipFront(name){
+  document.getElementById('frontName').textContent = name||"–";
+  document.getElementById('flipCard').classList.remove('flipped');
+}
+function setFlipBack(isImp, word){
+  document.getElementById('backMain').textContent = isImp ? "IMPOSTOR – ???" : ("Wort: " + word);
+  document.getElementById('backRole').textContent = isImp ? "Rolle: Impostor" : "Rolle: Crew";
+}
+function flip(){ document.getElementById('flipCard').classList.toggle('flipped'); }
+function isImpostor(i){ return impostors.includes(i) }
+
+/* ======= Runde starten ======= */
+function startRound(){
+  const k = parseInt($("kcount").value,10);
+  const impBase = parseInt($("impc").value,10);
+  if(players.length<3) return alert("Mindestens 3 Spieler:innen.");
+  if(impBase>=players.length) return alert("Zu viele Impostors für die Personenzahl.");
+
+  activeCats = pickActiveCategories(k);
+  let union=[]; activeCats.forEach(c=>union=union.concat(WORDS[c]));
+  roundWord = union[Math.floor(Math.random()*union.length)];
+
+  let idxs=players.map((_,i)=>i); shuffle(idxs);
+  impostors = idxs.slice(0,impBase);
+  impostors = applyTroll(impostors);
+
+  starter = sample(players);
+  document.getElementById('who-starts').textContent = "Starter: " + starter;
+
+  revealIdx=0; votes={}; tieMode=false;
+  $("rev-name").textContent = players[0];
+  setFlipFront(players[0]);
+  setFlipBack(isImpostor(0), roundWord);
+  swap("screen-reveal");
+}
+
+/* ======= Reveal Navigation ======= */
+function nextReveal(){
+  if(revealIdx<players.length-1){
+    revealIdx++;
+    const name = players[revealIdx];
+    $("rev-name").textContent = name;
+    setFlipFront(name);
+    setFlipBack(isImpostor(revealIdx), roundWord);
+  } else {
+    beginDiscuss();
+  }
+}
+function prevReveal(){
+  if(revealIdx>0){
+    revealIdx--;
+    const name = players[revealIdx];
+    $("rev-name").textContent = name;
+    setFlipFront(name);
+    setFlipBack(isImpostor(revealIdx), roundWord);
+  }
+}
+
+/* ======= Diskussion / Timer ======= */
+function beginDiscuss(){
+  const dur=parseInt($("dur").value,10);
+  document.getElementById('starter-pill').textContent = "Starter: " + starter;
+  startTimer(dur);
+  swap("screen-discuss");
+}
+function startTimer(seconds){
+  stopTimer(); timeLeft=seconds; $("tbar").style.width="100%";
+  timerInt=setInterval(()=>{
+    timeLeft-=0.1;
+    $("tbar").style.width=Math.max(0,(timeLeft/seconds))*100+"%";
+    if(timeLeft<=0){ stopTimer(); goVote(); }
+  },100);
+}
+function stopTimer(){ if(timerInt){ clearInterval(timerInt); timerInt=null; } }
+function pauseTimer(){ stopTimer(); }
+function resumeTimer(){ if(!timerInt){ startTimer(Math.max(1,Math.ceil(timeLeft))); } }
+
+/* ======= Voting ======= */
+function goVote(){
+  stopTimer();
+  const list=$("vote-list"); list.innerHTML="";
+  players.forEach(p=>{ const b=document.createElement("button"); b.className="vote-btn"; b.textContent=p; b.onclick=()=>b.classList.toggle("sel"); list.appendChild(b); });
+  swap("screen-vote");
+}
+function toggleTie(){ tieMode=!tieMode; alert(tieMode?"Stechen-Modus: wähle genau 1 Person.":"Normalmodus: Mehrere wählbar – Mehrheit entscheidet."); }
+function revealResult(){
+  const sels=[...document.querySelectorAll(".vote-btn.sel")].map(b=>b.textContent);
+  if(tieMode && sels.length!==1) return alert("Stechen-Modus: genau EINE Person wählen.");
+  if(sels.length===0) return alert("Niemand gewählt.");
+  const counts={}; sels.forEach(n=>counts[n]=(counts[n]||0)+1);
+  let top=[],max=0; for(const [n,c] of Object.entries(counts)){ if(c>max){max=c;top=[n]} else if(c===max){ top.push(n) } }
+  const accused=top[Math.floor(Math.random()*top.length)];
+  const hit = isImpostor(players.indexOf(accused));
+  const imps = impostors.length?impostors.map(i=>players[i]).join(", "):"–";
+  $("res-title").textContent = hit ? "Treffer!" : "Daneben!";
+  $("res-desc").textContent = (hit?`Ihr habt ${accused} gewählt. Korrekt 🎯.`:`Ihr habt ${accused} gewählt – leider falsch.`) + `\nImpostor: ${imps}\nGeheimes Wort: „${roundWord}“.`;
+  swap("screen-result");
+}
+
+/* ======= Next / Reset ======= */
+function newWordSamePlayers(){ startRound(); }
+function backToSetup(){ swap("screen-setup"); }
+
+/* ======= Hilfe ======= */
+function showHelp(){
+  alert(`Green Layout:
+– Flip-Karte: vorne Name, hinten Wort/Rolle. Tippen zum Anzeigen.
+– Zufälliger Starter wird angezeigt.
+– Troll-Modus: Chaos-Regler (alle/keine/extra Impostors).
+– Setup: Kategorien wählen; im Spiel wird nichts geleakt.`);
+}
+
+/* ======= Init ======= */
+(function init(){ renderPlayers(); })();
+</script>
+</body>
+</html>
